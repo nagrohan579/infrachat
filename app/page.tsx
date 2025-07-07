@@ -1,102 +1,142 @@
-import Image from "next/image";
+"use client"
+
+import { useState } from "react";
+import { Cloud, Zap, Shield, Code } from "lucide-react";
+import { ChatInterface } from "@/components/chat-interface";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [isChatMode, setIsChatMode] = useState(false);
+  const [messages, setMessages] = useState<Array<{id: string, content: string, role: "user" | "assistant", timestamp: Date}>>([]);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+  const handleStartChat = () => {
+    setIsChatMode(true);
+  };
+
+  const handleBackToHome = () => {
+    setIsChatMode(false);
+    setMessages([]); // Clear messages when going back to home
+  };
+
+  if (isChatMode) {
+    // Full screen chat mode
+    return (
+      <div className="h-screen bg-background flex flex-col transition-all duration-700 ease-in-out animate-fade-in">
+        {/* Header */}
+        <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex-shrink-0 z-50 animate-slide-down">
+          <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                <Cloud className="h-5 w-5 text-primary-foreground" />
+              </div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                InfraChat
+              </h1>
+            </div>
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={handleBackToHome}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                ← Back to Home
+              </button>
+              <ThemeToggle />
+            </div>
+          </div>
+        </header>
+
+        {/* Full Screen Chat */}
+        <div className="flex-1 flex flex-col animate-fade-in-up overflow-hidden">
+          <ChatInterface 
+            onStartChat={handleStartChat} 
+            isFullScreen={true} 
+            messages={messages}
+            setMessages={setMessages}
+          />
+        </div>
+      </div>
+    );
+  }
+  // Welcome mode
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex flex-col">
+      {/* Header */}
+      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+              <Cloud className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              InfraChat
+            </h1>
+          </div>
+          <ThemeToggle />
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col justify-center">
+        {/* Welcome Section */}
+        <div className="container mx-auto px-4 py-12 text-center">
+          <h2 className="text-4xl font-bold mb-6 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+            Your Cloud Infrastructure Assistant
+          </h2>
+          <p className="text-muted-foreground mb-12 max-w-2xl mx-auto text-lg">
+            Chat with AI to provision and manage cloud infrastructure using Terraform. 
+            Build, scale, and optimize your cloud resources with natural language.
+          </p>
+          
+          {/* Feature Cards */}
+          <div className="grid md:grid-cols-3 gap-8 mb-16 max-w-5xl mx-auto">
+            <div className="flex flex-col items-center gap-4 p-8 rounded-lg bg-card border transition-all duration-300 hover:shadow-lg hover:scale-105">
+              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+                <Zap className="h-8 w-8 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold">Instant Provisioning</h3>
+              <p className="text-muted-foreground text-center">
+                Deploy infrastructure in minutes with AI-generated Terraform configurations
+              </p>
+            </div>
+            
+            <div className="flex flex-col items-center gap-4 p-8 rounded-lg bg-card border transition-all duration-300 hover:shadow-lg hover:scale-105">
+              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+                <Shield className="h-8 w-8 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold">Security First</h3>
+              <p className="text-muted-foreground text-center">
+                Built-in security best practices and compliance standards
+              </p>
+            </div>
+            
+            <div className="flex flex-col items-center gap-4 p-8 rounded-lg bg-card border transition-all duration-300 hover:shadow-lg hover:scale-105">
+              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+                <Code className="h-8 w-8 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold">Code Generation</h3>
+              <p className="text-muted-foreground text-center">
+                Generate production-ready Terraform code from simple descriptions
+              </p>
+            </div>
+          </div>
+
+          {/* Chat Input Area */}
+          <div className="max-w-4xl mx-auto">
+            <ChatInterface 
+              onStartChat={handleStartChat} 
+              isFullScreen={false} 
+              messages={messages}
+              setMessages={setMessages}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+          </div>
         </div>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+
+      {/* Footer */}
+      <footer className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container mx-auto px-4 py-6 text-center text-sm text-muted-foreground">
+          <p>Built with Next.js, shadcn/ui, and Terraform integration</p>
+        </div>
       </footer>
     </div>
   );
