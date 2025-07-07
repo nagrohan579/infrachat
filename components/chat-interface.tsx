@@ -20,6 +20,7 @@ interface ChatInterfaceProps {
   isFullScreen: boolean;
   messages: Message[];
   setMessages: (messages: Message[]) => void;
+  currentChatId?: string | null;
 }
 
 const quickActions = [
@@ -565,7 +566,7 @@ Some examples:
 - "Deploy a microservices architecture with databases"`;
 };
 
-export function ChatInterface({ onStartChat, isFullScreen, messages, setMessages }: ChatInterfaceProps) {
+export function ChatInterface({ onStartChat, isFullScreen, messages, setMessages, currentChatId }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -586,7 +587,8 @@ export function ChatInterface({ onStartChat, isFullScreen, messages, setMessages
       role,
       timestamp: new Date()
     };
-    setMessages(prevMessages => [...prevMessages, newMessage]);
+    console.log('Adding message:', role, newMessage.id);
+    setMessages((prevMessages: Message[]) => [...prevMessages, newMessage]);
     return newMessage;
   };
 
@@ -595,7 +597,7 @@ export function ChatInterface({ onStartChat, isFullScreen, messages, setMessages
     if (!content) return;
 
     // Add user message
-    addMessage(content, "user");
+    const userMessage = addMessage(content, "user");
     setInput("");
     setIsLoading(true);
 
@@ -607,11 +609,41 @@ export function ChatInterface({ onStartChat, isFullScreen, messages, setMessages
       }, 100);
     }
 
+    // Save user message immediately if we have a chat ID
+    if (currentChatId) {
+      try {
+        const updatedMessages = [...messages, userMessage];
+        await fetch(`/api/chats/${currentChatId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: updatedMessages })
+        });
+        console.log('User message saved to database');
+      } catch (error) {
+        console.error('Error saving user message:', error);
+      }
+    }
+
     // Simulate AI response delay
-    setTimeout(() => {
+    setTimeout(async () => {
       const aiResponse = getAIResponse(content);
-      addMessage(aiResponse, "assistant");
+      const assistantMessage = addMessage(aiResponse, "assistant");
       setIsLoading(false);
+      
+      // Save assistant message immediately too
+      if (currentChatId) {
+        try {
+          const finalMessages = [...messages, userMessage, assistantMessage];
+          await fetch(`/api/chats/${currentChatId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages: finalMessages })
+          });
+          console.log('Assistant message saved to database');
+        } catch (error) {
+          console.error('Error saving assistant message:', error);
+        }
+      }
     }, 1500);
   };
 
@@ -627,7 +659,7 @@ export function ChatInterface({ onStartChat, isFullScreen, messages, setMessages
   };
 
   const formatMessage = (content: string, role: "user" | "assistant" = "assistant") => {
-    // First, fix HTML entities
+    // Simple formatting for now to avoid JSX complexity issues
     const decodedContent = content
       .replace(/&apos;/g, "'")
       .replace(/&quot;/g, '"')
@@ -635,112 +667,39 @@ export function ChatInterface({ onStartChat, isFullScreen, messages, setMessages
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>');
 
-    // Split by code blocks first
-    const parts = decodedContent.split(/```(\w*)\n([\s\S]*?)```/g);
-    
-    return parts.map((part, index) => {
-      if (index % 3 === 0) {
-        // Regular text - process markdown
-        return processMarkdown(part, index, role);
-      } else if (index % 3 === 1) {
-        // Language identifier - skip
-        return null;
-      } else {
-        // Code block
-        return (
-          <div key={index} className="my-4 rounded-lg bg-muted/50 border">
-            <div className="px-4 py-2 border-b bg-muted/30 text-sm font-mono text-muted-foreground">
-              {parts[index - 1] || 'code'}
-            </div>
-            <pre className="p-4 overflow-x-auto">
-              <code className="text-sm font-mono">{part}</code>
-            </pre>
-          </div>
-        );
-      }
-    });
-  };
-
-  const processMarkdown = (text: string, key: number, role: "user" | "assistant") => {
-    const lines = text.split('\n');
-    const elements: React.ReactNode[] = [];
-    
-    lines.forEach((line, lineIndex) => {
-      const trimmedLine = line.trim();
+    // Handle code blocks
+    if (decodedContent.includes('```')) {
+      const parts = decodedContent.split(/```(\w*)\n([\s\S]*?)```/g);
       
-      if (trimmedLine.startsWith('- ')) {
-        // Bullet point
-        elements.push(
-          <div key={`${key}-${lineIndex}`} className="flex items-center gap-2 my-1">
-            <span className="text-primary text-sm leading-none">•</span>
-            <span className="flex-1">{formatInlineMarkdown(trimmedLine.substring(2), role)}</span>
-          </div>
-        );
-      } else if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**') && trimmedLine.length > 4) {
-        // Bold heading
-        elements.push(
-          <div key={`${key}-${lineIndex}`} className="font-semibold text-foreground my-2">
-            {trimmedLine.slice(2, -2)}
-          </div>
-        );
-      } else if (trimmedLine) {
-        // Regular text with inline formatting
-        elements.push(
-          <div key={`${key}-${lineIndex}`} className="my-1">
-            {formatInlineMarkdown(trimmedLine, role)}
-          </div>
-        );
-      } else {
-        // Empty line - add spacing
-        elements.push(<div key={`${key}-${lineIndex}`} className="h-2" />);
-      }
-    });
-    
-    return elements;
-  };
+      return (
+        <div>
+          {parts.map((part, index) => {
+            if (index % 3 === 0) {
+              // Regular text
+              return <div key={index} style={{ whiteSpace: 'pre-wrap' }}>{part}</div>;
+            } else if (index % 3 === 1) {
+              // Language identifier - skip
+              return null;
+            } else {
+              // Code block
+              return (
+                <div key={index} className="my-4 rounded-lg bg-muted/50 border">
+                  <div className="px-4 py-2 border-b bg-muted/30 text-sm font-mono text-muted-foreground">
+                    {parts[index - 1] || 'code'}
+                  </div>
+                  <pre className="p-4 overflow-x-auto">
+                    <code className="text-sm font-mono">{part}</code>
+                  </pre>
+                </div>
+              );
+            }
+          })}
+        </div>
+      );
+    }
 
-  const formatInlineMarkdown = (text: string, role: "user" | "assistant" = "assistant") => {
-    let processedText = text;
-    const elements: React.ReactNode[] = [];
-    
-    // Split by inline code first `code`
-    const codeRegex = /`([^`]+)`/g;
-    const codeParts = processedText.split(codeRegex);
-    
-    codeParts.forEach((part, index) => {
-      if (index % 2 === 1) {
-        // This is inline code - style based on message role
-        const codeClassName = role === "user" 
-          ? "bg-primary-foreground/20 text-primary-foreground px-1.5 py-0.5 rounded text-sm font-mono"
-          : "bg-muted px-1.5 py-0.5 rounded text-sm font-mono";
-        
-        elements.push(
-          <code key={index} className={codeClassName}>
-            {part}
-          </code>
-        );
-      } else {
-        // Process bold text in regular text
-        const boldRegex = /\*\*(.*?)\*\*/g;
-        const boldParts = part.split(boldRegex);
-        
-        boldParts.forEach((boldPart, boldIndex) => {
-          if (boldIndex % 2 === 1) {
-            // This is bold text
-            elements.push(
-              <strong key={`${index}-${boldIndex}`} className="font-semibold">
-                {boldPart}
-              </strong>
-            );
-          } else if (boldPart) {
-            // Regular text
-            elements.push(boldPart);
-          }
-        });
-      }
-    });
-    
-    return elements;
+    // Simple text formatting
+    return <div style={{ whiteSpace: 'pre-wrap' }}>{decodedContent}</div>;
   };
 
   if (!isFullScreen) {
@@ -824,7 +783,7 @@ export function ChatInterface({ onStartChat, isFullScreen, messages, setMessages
                     {message.role === "user" ? "You" : "Assistant"}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
-                    {message.timestamp.toLocaleTimeString()}
+                    {new Date(message.timestamp).toLocaleTimeString()}
                   </span>
                 </div>
                 <div className={`inline-block rounded-lg p-4 ${message.role === "user" 
